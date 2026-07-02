@@ -1,0 +1,50 @@
+configure terminal
+hostname Site1
+
+interface GigabitEthernet0/0
+ description Conexion Hacia ISP
+ ip address 192.0.2.1 255.255.255.252
+ no shutdown
+exit
+
+interface GigabitEthernet0/1
+ description Conexion Hacia LAN SITE1
+ ip address 10.1.1.1 255.255.255.0
+ no shutdown
+exit
+
+ip route 0.0.0.0 0.0.0.0 192.0.2.2
+
+! --- Fase 1: IKEv1 ---
+crypto isakmp policy 10
+ encr aes 256
+ hash sha256
+ authentication pre-share
+ group 14
+exit
+
+crypto isakmp key claveSecreta123 address 198.51.100.1
+
+! --- Fase 2: IPSec (Modo transporte para GRE) ---
+crypto ipsec transform-set TS esp-aes 256 esp-sha256-hmac
+ mode transport
+exit
+
+crypto ipsec profile PERFIL_IPSEC
+ set transform-set TS
+exit
+
+! --- Interfaz GRE sobre IPSec ---
+interface Tunnel0
+ description Tunnel GRE IKEv1 Hacia SITE2
+ ip address 172.16.1.1 255.255.255.0
+ ip ospf 1 area 0
+ tunnel source GigabitEthernet0/0
+ tunnel destination 198.51.100.1
+ tunnel protection ipsec profile PERFIL_IPSEC
+exit
+
+! --- OSPF ---
+router ospf 1
+end
+write memory
